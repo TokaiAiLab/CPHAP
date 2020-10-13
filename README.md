@@ -2,6 +2,10 @@
 
 [Implementation example] Interpreting Deep Temporal Neural Networks by Selective Visualization of Internally Activated Nodes
 
+![CI Back](https://github.com/khirotaka/CPHAP/workflows/CI%20Back/badge.svg)
+
+---
+
 ## System Requirements
 
 -  Unix-like
