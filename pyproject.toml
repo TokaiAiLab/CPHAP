@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "cphap"
+version = "0.1.0"
+description = ""
+authors = ["Hirotaka Kawashima <k.hirotaka@me.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+seaborn = "^0.11.0"
+numpy = "^1.19.2"
+matplotlib = "^3.3.2"
+enchanter = "^0.7.1"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
