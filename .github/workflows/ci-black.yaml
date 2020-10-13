@@ -1,0 +1,37 @@
+name: CI Back
+
+on:
+  push:
+  pull_request:
+
+
+jobs:
+  black:
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        python-version: [ 3.7, 3.8 ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+
+
+      - name: Install Poetry
+          run: |
+            curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
+            - name: Add path for Poetry
+              run: echo "::add-path::$HOME/.poetry/bin"
+            - name: Install Dependencies
+              run: |
+                poetry run pip install -U pip
+                poetry install --no-dev --no-interaction
+
+      - name: Black
+        run: |
+          poetry run black --check --diff .
