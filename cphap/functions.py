@@ -53,7 +53,7 @@ def find_t(
     if return_raw:
         return xs, idx.item(), kernel
     else:
-        return xs[idx].item()   # threshold
+        return xs[idx].item()  # threshold
 
 
 def plot_kde(feature_map: torch.Tensor, plot: bool = True) -> None:
