@@ -47,21 +47,13 @@ for idx in range(data.shape[0]):
     out_j = model.conv(data[idx].unsqueeze(0))
     t_jk = find_t(model.conv(data))  # shape == [channels, L']
     for k in range(n_channels):
-        a_jk = out_j[0][k]
-        # max_size: int = a_jk.shape[0]
-        han_jk = {i for i in range(a_jk.shape[0]) if a_jk[i] > t_jk[k]}
+        han_jk, max_size = han(out_j, k, t_jk)
 
         irf_j = int(receptive_field_dict["1"]["r"])
-        tmp = []
-        for i in han_jk:
-            half_size = calc_half_size(irf_j)
-            start = i - half_size
-            end = i + half_size
-            temporal_i = set(range(start, end + 1))
-            tmp += temporal_i
+        tmp = hap(han_jk, irf_j, max_size)
         # hap_list_j.append(sorted(set(tmp)))
         # hap_list.append(hap_list_j)
-        hap_list.append(sorted(set(tmp)))  # List[List[int]]
+        hap_list.append(tmp)  # List[List[int]]
 
 # [channels, batch]
 
