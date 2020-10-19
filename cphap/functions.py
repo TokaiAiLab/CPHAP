@@ -65,10 +65,11 @@ def plot_kde(
         plt.show()
 
 
-def han(conv_out: torch.Tensor, channel: int, thresholds: List[int]) -> Set[int]:
+def han(conv_out: torch.Tensor, channel: int, thresholds: torch.Tensor) -> Tuple[Set[int], int]:
     a_jk: torch.Tensor = conv_out[0][channel]
+    max_size = a_jk.shape[0]
     han_jk = {i for i in range(a_jk.shape[0]) if a_jk[i] > thresholds[channel]}
-    return han_jk
+    return han_jk, max_size
 
 
 def calc_half_size(file_size: int) -> int:
@@ -79,7 +80,7 @@ def calc_half_size(file_size: int) -> int:
 
 
 def hap(han_jk: Set[int], in_receptive_filed: int, max_size: int) -> List[int]:
-    tmp = []
+    tmp = set()
     for i in han_jk:
         half_size = calc_half_size(in_receptive_filed)
         start: int = i - half_size
@@ -91,6 +92,6 @@ def hap(han_jk: Set[int], in_receptive_filed: int, max_size: int) -> List[int]:
             end = max_size
 
         temporal_indices = set(range(start, end + 1))
-        tmp += temporal_indices
+        tmp = tmp | temporal_indices
 
     return sorted(set(tmp))
