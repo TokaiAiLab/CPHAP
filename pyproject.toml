@@ -12,6 +12,7 @@ numpy = "^1.19.2"
 matplotlib = "^3.3.2"
 enchanter = "^0.7.1"
 black = "^20.8b1"
+quicksom = "^0.0.4"
 
 [tool.poetry.dev-dependencies]
 
