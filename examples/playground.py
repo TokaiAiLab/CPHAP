@@ -24,7 +24,7 @@ class CNN(nn.Module):
         return self.fc(out)
 
 
-model = CNN()
+model = CNN().to(device)
 optimizer = optim.Adam(model.parameters())
 criterion = nn.CrossEntropyLoss()
 
