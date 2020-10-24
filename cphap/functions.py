@@ -7,7 +7,7 @@ from scipy.integrate import cumtrapz
 import matplotlib.pyplot as plt
 
 
-__all__ = ["find_t", "plot_kde", "han"]
+__all__ = ["find_t", "plot_kde", "han", "generate_indices_for_hap"]
 
 
 def find_t(feature_map: torch.Tensor, margin: float = 0.05) -> torch.Tensor:
@@ -72,26 +72,31 @@ def han(conv_out: torch.Tensor, channel: int, thresholds: torch.Tensor) -> Tuple
     return han_jk, max_size
 
 
-def calc_half_size(file_size: int) -> int:
-    if file_size == 1:
+def calc_half_size(filter_size: int) -> int:
+    if filter_size == 1:
         return 0
+    elif filter_size % 2 == 0:
+        raise ValueError
     else:
-        return file_size // 2
+        return filter_size // 2
 
 
-def hap(han_jk: Set[int], in_receptive_filed: int, max_size: int) -> List[int]:
-    tmp = set()
+def generate_indices_for_hap(han_jk: Set[int], in_receptive_filed: int, max_size: int) -> List[List[int]]:
+    tmp = []
     for i in han_jk:
         half_size = calc_half_size(in_receptive_filed)
         start: int = i - half_size
         if start < 0:
-            start = 0
+            start = i
+        end = (start + in_receptive_filed)
 
-        end: int = i + half_size
         if end > max_size:
-            end = max_size
+            start -= 1
+            end -= 1
 
-        temporal_indices = set(range(start, end + 1))
-        tmp = tmp | temporal_indices
+        temporal_indices = list(range(start, end))
+        assert len(temporal_indices) == in_receptive_filed, "Size Error: {}"
+        tmp.append(temporal_indices)
 
-    return sorted(set(tmp))
+    return tmp
+
