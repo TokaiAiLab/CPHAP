@@ -83,22 +83,25 @@ def calc_half_size(filter_size: int) -> int:
         return filter_size // 2
 
 
-def generate_indices_for_hap(han_jk: Set[int], in_receptive_filed: int, max_size: int) -> List[List[int]]:
+def generate_indices_for_hap(
+    han_jk: Set[int], in_receptive_filed: int, max_size: int
+) -> List[List[int]]:
     tmp = []
     for i in han_jk:
         half_size = calc_half_size(in_receptive_filed)
         start: int = i - half_size
         if start < 0:
             start = i
-        end = (start + in_receptive_filed)
+        end = start + in_receptive_filed
 
         if end > max_size:
             start -= 1
             end -= 1
 
         temporal_indices = list(range(start, end))
-        assert len(temporal_indices) == in_receptive_filed, "Size Error: {}"
+        assert (
+            len(temporal_indices) == in_receptive_filed
+        ), "Size Error: start - {} end - {}".format(start, end)
         tmp.append(temporal_indices)
 
     return tmp
-
