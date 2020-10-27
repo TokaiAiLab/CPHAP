@@ -65,7 +65,9 @@ def plot_kde(
         plt.show()
 
 
-def han(conv_out: torch.Tensor, channel: int, thresholds: torch.Tensor) -> Tuple[Set[int], int]:
+def han(
+    conv_out: torch.Tensor, channel: int, thresholds: torch.Tensor
+) -> Tuple[Set[int], int]:
     a_jk: torch.Tensor = conv_out[0][channel]
     max_size = a_jk.shape[0]
     han_jk = {i for i in range(a_jk.shape[0]) if a_jk[i] > thresholds[channel]}
