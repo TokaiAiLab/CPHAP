@@ -13,6 +13,8 @@ from cphap.utils import UEADataset
 n_channels = 10
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+torch.manual_seed(0)
+
 
 class CNN(nn.Module):
     def __init__(self, ins):
