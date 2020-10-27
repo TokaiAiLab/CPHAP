@@ -109,8 +109,9 @@ with torch.no_grad():
 
     ps = torch.stack(ps)
     predicts, _ = soms[0].predict(ps)
+    tmp = torch.cat(hap_lists)
     for_mean_variance: torch.Tensor = torch.stack(
-        [p for p in hap_lists[0] if (soms[0].predict(p.unsqueeze(0))[0] == predicts[0]).all()]
+        [p for p in tmp if (soms[0].predict(p.unsqueeze(0))[0] == predicts[0]).all()]
     )
     # TODO: predicts は複数個含まれることが考えられる。それに対する処理を入れる。
     cphap = for_mean_variance.mean(0)
