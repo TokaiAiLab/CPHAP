@@ -41,7 +41,7 @@ train_loader = DataLoader(train_ds, batch_size=32, shuffle=True)
 test_loader = DataLoader(test_ds, batch_size=32, shuffle=False)
 
 
-for epoch in range(1000):
+for epoch in range(100):
     for batch in train_loader:
         data, targets = batch
         optimizer.zero_grad()
@@ -82,7 +82,7 @@ def func(c: int, d):
 
 # size of hap_list == data.shape[0] * n_channels
 hap_lists = Parallel(n_jobs=-1)([delayed(func)(i, test_ds.data) for i in range(in_features)])
-NITER = 10
+NITER = 1000
 
 
 def train_som(idx):
