@@ -1,5 +1,5 @@
-from typing import Tuple, List
-
+from typing import Tuple, List, Optional
+import numpy as np
 import torch
 import torch.nn as nn
 from torchscan import crawl_module
@@ -133,17 +133,22 @@ def train_som(data: torch.Tensor, map_size: Tuple[int, int], epochs: int) -> SOM
     Returns:
 
     """
-    device = data.device
-    data = PCA(n_components=0.95).fit_transform(data.cpu().numpy()).astype(np.float32)
-    data = torch.tensor(data, dtype=torch.float32, device=device)
+    if data.shape[0] > 512 and torch.cuda.is_available():
+        batch_size = 512
+    else:
+        batch_size = 20
+
     columns = map_size[0]
     rows = map_size[1]
-    som = SOM(columns, rows, data.shape[-1], niter=epochs, device=device)
-    som.fit(data, print_each=epochs * 100)
+    som = SOM(columns, rows, data.shape[-1], niter=epochs, device=data.device)
+    _ = som.fit(data, print_each=epochs * 100, batch_size=batch_size)
 
     return som
 
 
-def predict_cluster(trained_som: SOM, data: torch.Tensor) -> torch.Tensor:
-    c = trained_som.predict(data)[0]
+def predict_cluster(trained_som: SOM, data: Optional[torch.Tensor]) -> np.ndarray:
+    if data is None:
+        c = np.array([])
+    else:
+        c = trained_som.predict(data)[0]
     return c
