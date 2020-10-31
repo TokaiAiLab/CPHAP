@@ -94,3 +94,17 @@ class TSULUEADataset(TimeSeriesLabeledDataset):
             self.projector = {k: v for v, k in projector.items()}
         else:
             self.projector = projector
+
+
+
+
+def fetch_loader(batch_size: int, name="RacketSports") -> Tuple[DataLoader, DataLoader, Tuple[int, int]]:
+    train_ds = UEADataset(train=True, name=name)
+    test_ds = UEADataset(train=False, name=name)
+    n_targets = train_ds.n_targets
+    n_features = train_ds.n_features
+
+    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False)
+
+    return train_loader, test_loader, (n_targets, n_features)
