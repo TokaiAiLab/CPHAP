@@ -64,9 +64,10 @@ def plot_kde(
         plt.show()
 
 
+@torch.jit.script
 def han(
     conv_out: torch.Tensor, channel: int, thresholds: torch.Tensor
-) -> Tuple[Set[int], int]:
+) -> Tuple[List[int], int]:
     """
 
     Args:
@@ -79,10 +80,14 @@ def han(
     """
     a_jk: torch.Tensor = conv_out[0][channel]   # shape == seq_len
     max_size = a_jk.shape[0]    # max seq len
-    han_jk = {i for i in range(a_jk.shape[0]) if a_jk[i] > thresholds[channel]}
+    han_jk: List[int] = []
+    for i in range(max_size):
+        if a_jk[i] > thresholds[channel]:
+            han_jk.append(i)
     return han_jk, max_size
 
 
+@torch.jit.script
 def calc_half_size(filter_size: int) -> int:
     if filter_size == 1:
         return 0
@@ -92,9 +97,10 @@ def calc_half_size(filter_size: int) -> int:
         return filter_size // 2
 
 
+@torch.jit.script
 def generate_indices_for_hap(
-    han_jk: Set[int], in_receptive_filed: int, max_size: int
-) -> List[List[int]]:
+    han_jk: List[int], in_receptive_filed: int, max_size: int
+) -> List[torch.Tensor]:
     tmp = []
     for i in han_jk:
         half_size = calc_half_size(in_receptive_filed)
@@ -107,7 +113,7 @@ def generate_indices_for_hap(
             start -= 1
             end -= 1
 
-        temporal_indices = list(range(start, end))
+        temporal_indices = torch.arange(start, end)
         assert (
             len(temporal_indices) == in_receptive_filed
         ), "Size Error: start - {} end - {}".format(start, end)
