@@ -114,8 +114,10 @@ def hap_core(
     han_jk, max_size = han(data, channel=k, thresholds=thresholds[j])
     rf_j = receptive_field[j]
     tmp = generate_indices_for_hap(han_jk, rf_j, max_size)
-    if len(tmp) != 0:
-        hap_lists[j].append(x[:, tmp])
+
+    tmp2 = [t.cpu().numpy().tolist() for t in tmp]
+    if len(tmp2) != 0:
+        hap_lists[j].append(x[:, tmp2])
 
     return hap_lists, tmp
 
