@@ -3,7 +3,6 @@ from typing import Tuple, Union, Optional, List, Set
 import torch
 import numpy as np
 from scipy.stats import gaussian_kde
-from scipy.integrate import cumtrapz
 import matplotlib.pyplot as plt
 
 
@@ -68,8 +67,18 @@ def plot_kde(
 def han(
     conv_out: torch.Tensor, channel: int, thresholds: torch.Tensor
 ) -> Tuple[Set[int], int]:
-    a_jk: torch.Tensor = conv_out[0][channel]
-    max_size = a_jk.shape[0]
+    """
+
+    Args:
+        conv_out: output of Conv
+        channel:
+        thresholds:
+
+    Returns:
+
+    """
+    a_jk: torch.Tensor = conv_out[0][channel]   # shape == seq_len
+    max_size = a_jk.shape[0]    # max seq len
     han_jk = {i for i in range(a_jk.shape[0]) if a_jk[i] > thresholds[channel]}
     return han_jk, max_size
 
