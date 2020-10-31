@@ -1,48 +1,24 @@
 from comet_ml import Experiment
-from typing import Tuple, List, Union
+from typing import Tuple
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-
+from tqdm.auto import tqdm
 import matplotlib.pyplot as plt
 import matplotlib.style
-from quicksom.som import SOM
 
-from torchscan import crawl_module
 from tslearn.preprocessing import TimeSeriesScalerMeanVariance
-from sklearn.decomposition import PCA
 from enchanter.engine.modules import fix_seed, get_dataset
 from enchanter.tasks import ClassificationRunner
 
-from cphap.functions import find_t, han, generate_indices_for_hap
 from cphap.utils import fetch_dataset
+from cphap.core import CNN, calculate_rf, calculate_thresholds, hap_core, train_som, predict_cluster
 
 
 fix_seed(0)
 matplotlib.style.use("seaborn")
-
-
-class CNN(nn.Module):
-    def __init__(self, in_features, mid_features, n_class, depth: int = 1):
-        super(CNN, self).__init__()
-        self.conv = nn.ModuleList([nn.Conv1d(in_features, mid_features, kernel_size=3)])
-        self.depth = depth
-        tmp = [nn.Conv1d(mid_features, mid_features, kernel_size=3) for _ in range(depth - 1)]
-        self.conv.extend(tmp)
-        self.pool = nn.AdaptiveMaxPool1d(1)
-        self.fc = nn.Linear(mid_features, n_class)
-
-    def forward(self, x):
-        batch = x.shape[0]
-
-        for layer in self.conv:
-            x = layer(x)
-
-        out = self.pool(x)
-        out = out.reshape(batch, -1)
-        return self.fc(out)
 
 
 def train_nn(dataset: str, batch_size: int, depth: int, epochs: int) -> Tuple[CNN, Tuple[np.ndarray, np.ndarray]]:
@@ -75,57 +51,11 @@ def train_nn(dataset: str, batch_size: int, depth: int, epochs: int) -> Tuple[CN
     )
     runner.add_loader("train", train_loader)
     runner.add_loader("test", test_loader)
-
     runner.train_config(epochs=epochs)
     runner.run()
     runner.quite()
 
     return runner.model.eval(), (x_train, x_test)
-
-
-def calculate_rf(model: CNN, dummy_in: Tuple[int, int]) -> List[int]:
-    rf = []
-    module_info = crawl_module(model, dummy_in)
-    info = module_info["layers"][1:model.depth+1]
-
-    for i in info:
-        rf.append(int(i["rf"]))
-
-    return rf
-
-
-def calculate_thresholds(model: CNN, data: torch.Tensor) -> List[torch.Tensor]:
-    results = []
-    for layer in model.conv:
-        data = layer(data)
-        results.append(find_t(data))
-
-    return results
-
-
-def hap_core(
-    hap_lists: List[List],
-    model: CNN,
-    x: torch.Tensor,
-    j: int,
-    k: int,
-    thresholds: List[torch.Tensor],
-    receptive_field
-):
-    data = x.unsqueeze(0)
-
-    for count, layer in enumerate(model.conv):
-        data = layer(data)
-        if count == j:
-            break
-
-    han_jk, max_size = han(data, channel=k, thresholds=thresholds[j])
-    rf_j = receptive_field[j]
-    tmp = generate_indices_for_hap(han_jk, rf_j, max_size)
-    if len(tmp) != 0:
-        hap_lists[j].append(x[:, tmp])
-
-    return hap_lists, tmp
 
 
 def run_hap():
@@ -136,7 +66,7 @@ def run_hap():
     """
     batch_size = 32
     depth = 2
-    dataset_name = "RacketSports"
+    dataset_name = "UWaveGestureLibraryAll"
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model, (x_train, x_test) = train_nn(dataset_name, batch_size, depth, epochs=100)
@@ -148,7 +78,7 @@ def run_hap():
 
     hap_lists = [list() for _ in range(depth)]
 
-    for x in x_test:
+    for x in tqdm(x_test):
         for j in range(depth):
             for k in range(model.conv[j].out_channels):
                 hap_lists, _ = hap_core(hap_lists, model, x, j, k, thresholds, receptive_field=rf)
@@ -157,33 +87,6 @@ def run_hap():
         hap_lists[i] = torch.cat(hap_lists[i], 1)
 
     return hap_lists, (x_train, x_test), model
-
-
-def train_som(data, map_size: Tuple[int, int], epochs):
-    """
-
-    Args:
-        data: [N, sub_seq_len]
-        map_size: ex, (8, 8)
-        epochs:
-
-    Returns:
-
-    """
-    device = data.device
-    data = PCA(n_components=0.95).fit_transform(data.cpu().numpy()).astype(np.float32)
-    data = torch.tensor(data, dtype=torch.float32, device=device)
-    columns = map_size[0]
-    rows = map_size[1]
-    som = SOM(columns, rows, data.shape[-1], niter=epochs, device=device)
-    som.fit(data, print_each=epochs * 100)
-
-    return som
-
-
-def predict_cluster(trained_som: SOM, data: torch.Tensor) -> torch.Tensor:
-    c = trained_som.predict(data)[0]
-    return c
 
 
 def main(data_idx: int, layer: int, in_channel, target_channel: int, epochs: int):
