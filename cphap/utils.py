@@ -42,6 +42,8 @@ class UEADataset(Dataset):
 
         if name in {"PEMS-SF", "Libras"}:
             targets = targets.astype(float).astype(int) - 1
+        elif name in {"UWaveGestureLibraryAll"}:
+            targets = targets - 1
         else:
             projector = {k: i for i, k in enumerate(np.unique(targets))}
             targets = np.array(list(map(lambda n: projector[n], targets)))
