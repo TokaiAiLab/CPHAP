@@ -89,12 +89,92 @@ def run_hap():
     return hap_lists, (x_train, x_test), model
 
 
+
+class CPHAPFrontend:
+    def __init__(self, som_map_size: Tuple[int, int] = (8, 8)):
+        self.x_train = None
+        self.x_test = None
+        self.model = None
+        self.hap_lists = None
+        self.som = None
+        self.som_map_size = som_map_size
+        self.p = None
+        self.predicts = None
+        self.indices = None
+        self.target_layer = None
+        self.target_in_channel = None
+        self.data_idx = None
+
+    def train_nn(self):
+        self.hap_lists, (self.x_train, self.x_test), self.model = run_hap()
+        self.reset_p()
+
+    def train_som(self, layer: int, epoch: int):
+        self.target_layer = layer
+        self.som = train_som(self.hap_lists[layer][0], self.som_map_size, epoch)
+
+    def reset_p(self):
+        self.p = [list() for _ in range(self.model.depth)]
+
+    def compute_p(self, data_idx, target_channel):
+        self.data_idx = data_idx
+        layer = self.target_layer
+        thresholds = calculate_thresholds(self.model, torch.cat([self.x_train, self.x_test], dim=0))
+        rf = calculate_rf(self.model, (self.x_train.shape[1], self.x_train.shape[2]))
+        p, indices = hap_core(self.p, self.model, self.x_test[data_idx], layer, target_channel, thresholds, rf)
+        if len(p[layer]) != 0:
+            p = p[layer][0].squeeze(0)
+        else:
+            p = None
+        self.p = p
+        self.indices = indices
+
+    def compute_cluster(self, in_channel: int):
+        self.target_in_channel = in_channel
+        if self.p is not None:
+            p = self.p[in_channel]
+        else:
+            p = None
+        predicts = predict_cluster(self.som, p)
+        self.predicts = predicts
+
+    def calculate_cphap(self):
+        in_channel = self.target_in_channel
+        layer = self.target_layer
+        cphaps = []
+        uncertainties = []
+        for predict in self.predicts:
+            try:
+                for_mean_variance = torch.stack(
+                    [p_ for p_ in self.hap_lists[layer][in_channel] if (predict == predict_cluster(self.som, p_)).all()]
+                )
+            except RuntimeError:
+                pass
+            else:
+                cphaps.append(for_mean_variance.mean(0))
+                uncertainties.append(for_mean_variance.var(0))
+
+        return cphaps, uncertainties
+
+    def plot(self, cphaps, uncertainties):
+        plt.plot(self.x_test[self.data_idx].cpu().numpy())
+        if len(cphaps) != 0:
+            for i in range(len(cphaps)):
+                plt.fill_between(
+                    self.indices[i],
+                    (cphaps[i] - uncertainties[i]).cpu().numpy(),
+                    (cphaps[i] + uncertainties[i]).cpu().numpy(),
+                    alpha=0.3,
+                    color="g"       # TODO クラスタ毎に色分け
+                )
+
+
 def main(data_idx: int, layer: int, in_channel, target_channel: int, epochs: int):
     cphaps = []
     uncertainties = []
     # hap_listはx_testに対するもの
     hap_lists, (x_train, x_test), model = run_hap()
-    som = train_som(hap_lists[layer][in_channel], (8, 8), epochs)
+    som = train_som(hap_lists[layer][0], (8, 8), epochs)
     p = [list() for _ in range(model.depth)]
     thresholds = calculate_thresholds(model, torch.cat([x_train, x_test], dim=0))
     rf = calculate_rf(model, (x_train.shape[1], x_train.shape[2]))
