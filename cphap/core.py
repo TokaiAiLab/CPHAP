@@ -29,6 +29,7 @@ class CNN(nn.Module):
 
         for layer in self.conv:
             x = layer(x)
+            x = torch.relu(x)
 
         out = self.pool(x)
         out = out.reshape(batch, -1)
@@ -73,6 +74,7 @@ def calculate_thresholds(model: CNN, data: torch.Tensor) -> List[torch.Tensor]:
     results = []
     for layer in model.conv:
         data = layer(data)
+        data = torch.relu(data)
         results.append(find_t(data))
 
     return results
@@ -108,6 +110,7 @@ def hap_core(
 
     for count, layer in enumerate(model.conv):
         data = layer(data)
+        data = torch.relu(data)
         if count == j:
             break
 
