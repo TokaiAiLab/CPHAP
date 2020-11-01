@@ -154,7 +154,7 @@ class CPHAPFrontend:
         return cphaps, uncertainties
 
     def plot(self, cphaps, uncertainties):
-        plt.plot(self.x_test[self.data_idx].cpu().numpy())
+        plt.plot(self.x_test[self.data_idx][self.target_in_channel].cpu().numpy())
         if len(cphaps) != 0:
             for i in range(len(cphaps)):
                 plt.fill_between(
