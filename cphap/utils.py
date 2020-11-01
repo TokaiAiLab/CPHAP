@@ -8,7 +8,7 @@ from enchanter.utils.datasets import TimeSeriesLabeledDataset
 __all__ = ["UEADataset", "TSULUEADataset", "fetch_loader", "fetch_dataset"]
 
 
-def fetch_dataset(name: str):
+def fetch_dataset(name: str) -> Tuple[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray]]:
     loader = UCR_UEA_datasets()
     x_train, y_train, x_test, y_test = loader.load_dataset(name)
     x_train = x_train.astype(np.float32)
