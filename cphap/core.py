@@ -4,7 +4,6 @@ import torch
 import torch.nn as nn
 from torchscan import crawl_module
 from quicksom.som import SOM
-from sklearn.decomposition import PCA
 
 from .functions import find_t, han, generate_indices_for_hap
 
@@ -16,6 +15,7 @@ class CNN(nn.Module):
         super(CNN, self).__init__()
         self.conv = nn.ModuleList([nn.Conv1d(in_features, mid_features, kernel_size=3)])
         self.depth = depth
+
         tmp = [
             nn.Conv1d(mid_features, mid_features, kernel_size=3)
             for _ in range(depth - 1)
@@ -23,6 +23,10 @@ class CNN(nn.Module):
         self.conv.extend(tmp)
         self.pool = nn.AdaptiveMaxPool1d(1)
         self.fc = nn.Linear(mid_features, n_class)
+
+        self.in_features = in_features
+        self.mid_features = mid_features
+        self.n_class = n_class
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         batch = x.shape[0]

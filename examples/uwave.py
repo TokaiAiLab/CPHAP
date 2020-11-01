@@ -1,5 +1,5 @@
 from comet_ml import Experiment
-from typing import Tuple
+from typing import Tuple, Union
 import numpy as np
 import torch
 import torch.nn as nn
@@ -21,14 +21,17 @@ fix_seed(0)
 matplotlib.style.use("seaborn")
 
 
-def train_nn(dataset: str, batch_size: int, depth: int, epochs: int) -> Tuple[CNN, Tuple[np.ndarray, np.ndarray]]:
+def train_nn(
+        dataset: str, batch_size: int, depth: int, epochs: int
+) -> Tuple[CNN, Tuple[Union[np.ndarray, np.ndarray], Union[np.ndarray, np.ndarray]], Tuple[
+    Union[np.ndarray, np.ndarray], Union[np.ndarray, np.ndarray]]]:
     experiment = Experiment(project_name="cphap", auto_output_logging=False)
     experiment.add_tag(dataset)
     experiment.add_tag("NN-depth-{}".format(depth))
     (x_train, y_train), (x_test, y_test) = fetch_dataset(dataset)
     scaler = TimeSeriesScalerMeanVariance()
-    x_train = scaler.fit_transform(x_train)
-    x_test = scaler.transform(x_test)
+    x_train: np.ndarray = scaler.fit_transform(x_train)
+    x_test: np.ndarray = scaler.transform(x_test)
 
     x_train = x_train.transpose((0, 2, 1)).astype(np.float32)
     x_test = x_test.transpose((0, 2, 1)).astype(np.float32)
@@ -55,21 +58,20 @@ def train_nn(dataset: str, batch_size: int, depth: int, epochs: int) -> Tuple[CN
     runner.run()
     runner.quite()
 
-    return runner.model.eval(), (x_train, x_test)
+    return runner.model.eval(), (x_train, x_test), (y_train, y_test)
 
 
-def run_hap():
+def run_hap(batch_size, depth, dataset_name):
     """
     j == layer
     hap_list[j].shape == [in_channels, sub_seq, rf]
 
     """
-    batch_size = 32
-    depth = 2
-    dataset_name = "UWaveGestureLibraryAll"
+    # dataset_name = "UWaveGestureLibraryAll"
+    # dataset_name = "RacketSports"
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model, (x_train, x_test) = train_nn(dataset_name, batch_size, depth, epochs=100)
+    model, (x_train, x_test), (y_train, y_test) = train_nn(dataset_name, batch_size, depth, epochs=100)
     x_train = torch.tensor(x_train, device=device)
     x_test = torch.tensor(x_test, device=device)
     thresholds = calculate_thresholds(model, torch.cat([x_train, x_test], dim=0))
@@ -86,14 +88,15 @@ def run_hap():
     for i in range(depth):
         hap_lists[i] = torch.cat(hap_lists[i], 1)
 
-    return hap_lists, (x_train, x_test), model
-
+    return hap_lists, (x_train, x_test), model, (y_train, y_test)
 
 
 class CPHAPFrontend:
-    def __init__(self, som_map_size: Tuple[int, int] = (8, 8)):
+    def __init__(self, dataset_name, batch_size, depth, som_map_size: Tuple[int, int] = (8, 8)):
         self.x_train = None
         self.x_test = None
+        self.y_train = None
+        self.y_test = None
         self.model = None
         self.hap_lists = None
         self.som = None
@@ -104,9 +107,23 @@ class CPHAPFrontend:
         self.target_layer = None
         self.target_in_channel = None
         self.data_idx = None
+        self.target_nn_channel = None
+        colors = []
+        for i in range(som_map_size[0]):
+            for j in range(som_map_size[1]):
+                colors.append([i, j])
+
+        self.colors = np.vstack(colors)
+        self.cm = plt.cm.get_cmap("hsv")
+
+        self.dataset_name = dataset_name
+        self.batch_size = batch_size
+        self.model_depth = depth
 
     def train_nn(self):
-        self.hap_lists, (self.x_train, self.x_test), self.model = run_hap()
+        self.hap_lists, (self.x_train, self.x_test), self.model, (self.y_train, self.y_test) = run_hap(
+            dataset_name=self.dataset_name, batch_size=self.batch_size, depth=self.model_depth
+        )
         self.reset_p()
 
     def train_som(self, layer: int, epoch: int):
@@ -115,6 +132,7 @@ class CPHAPFrontend:
 
     def compute_p(self, data_idx, target_channel):
         self.data_idx = data_idx
+        self.target_nn_channel = target_channel
         layer = self.target_layer
         thresholds = calculate_thresholds(self.model, torch.cat([self.x_train, self.x_test], dim=0))
         rf = calculate_rf(self.model, (self.x_train.shape[1], self.x_train.shape[2]))
@@ -154,26 +172,84 @@ class CPHAPFrontend:
         return cphaps, uncertainties
 
     def plot(self, cphaps, uncertainties):
+        pred, logit = self._nn_predict()
+        title = "CNN Layer {} - Channel {} | Input Channel {} | Label: {} | CNN Prediction: {} ({:.4f})".format(
+            self.target_layer, self.target_nn_channel, self.target_in_channel, self.y_test[self.data_idx], pred, logit
+        )
+
+        plt.figure(figsize=(10, 5))
         plt.plot(self.x_test[self.data_idx][self.target_in_channel].cpu().numpy())
         if len(cphaps) != 0:
             for i in range(len(cphaps)):
+                color = self.cm(
+                    (self.colors == self.predicts[i]).all(1).argmax() / (self.som_map_size[0] * self.som_map_size[1])
+                )
                 plt.fill_between(
                     self.indices[i],
                     (cphaps[i] - uncertainties[i]).cpu().numpy(),
                     (cphaps[i] + uncertainties[i]).cpu().numpy(),
                     alpha=0.3,
-                    color="g"       # TODO クラスタ毎に色分け
+                    color=color,
+                    label=str(self.predicts[i])
                 )
+            plt.legend()
+        plt.title(title)
 
     def reset_p(self):
         self.p = [list() for _ in range(self.model.depth)]
+
+    def _nn_predict(self):
+        with torch.no_grad():
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            x: torch.Tensor = self.x_test[self.data_idx].to(device).unsqueeze(0)
+            model = self.model.to(device)
+            logit = torch.softmax(model(x), 1)
+            pred = logit.argmax().cpu().numpy()
+            return pred, logit.max().cpu().numpy()
+
+    def save(self, path):
+        hap_lists = list(map(lambda x: x.cpu(), self.hap_lists))
+        x_train = self.x_train.cpu()
+        x_test = self.x_test.cpu()
+        y_train = self.y_train
+        y_test = self.y_test
+        model = self.model.cpu().state_dict()
+        model_init = {
+            "in_features": self.model.in_features,
+            "mid_features": self.model.mid_features,
+            "n_class": self.model.n_class,
+            "depth": self.model.depth
+        }
+
+        torch.save({
+            "hap_lists": hap_lists,
+            "x_train": x_train,
+            "x_test": x_test,
+            "y_train": y_train,
+            "y_test": y_test,
+            "model": model,
+            "init": model_init
+        }, path)
+
+    def load(self, file):
+        checkpoints = torch.load(file)
+        init = checkpoints["init"]
+        self.model = CNN(init["in_features"], init["mid_features"], init["n_class"], init["depth"])
+        self.model.load_state_dict(checkpoints["model"])
+        self.hap_lists = checkpoints["hap_lists"]
+        self.x_train = checkpoints["x_train"]
+        self.x_test = checkpoints["x_test"]
+        self.y_train = checkpoints["y_train"]
+        self.y_test = checkpoints["y_test"]
+
+        self.reset_p()
 
 
 def main(data_idx: int, layer: int, in_channel, target_channel: int, epochs: int):
     cphaps = []
     uncertainties = []
     # hap_listはx_testに対するもの
-    hap_lists, (x_train, x_test), model = run_hap()
+    hap_lists, (x_train, x_test), model, _ = run_hap()
     som = train_som(hap_lists[layer][0], (8, 8), epochs)
     p = [list() for _ in range(model.depth)]
     thresholds = calculate_thresholds(model, torch.cat([x_train, x_test], dim=0))
@@ -205,3 +281,15 @@ def main(data_idx: int, layer: int, in_channel, target_channel: int, epochs: int
                 alpha=0.3,
                 color="g"
             )
+
+
+def run_frontends():
+    for depth in [2, 4, 6, 8, 10]:
+        print("Depth: ", depth)
+        frontend = CPHAPFrontend("UWaveGestureLibraryAll", batch_size=512, depth=depth)
+        frontend.train_nn()
+        frontend.save("UWave_depth_{}.pth".format(depth))
+
+
+if __name__ == '__main__':
+    run_frontends()
