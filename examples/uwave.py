@@ -113,9 +113,6 @@ class CPHAPFrontend:
         self.target_layer = layer
         self.som = train_som(self.hap_lists[layer][0], self.som_map_size, epoch)
 
-    def reset_p(self):
-        self.p = [list() for _ in range(self.model.depth)]
-
     def compute_p(self, data_idx, target_channel):
         self.data_idx = data_idx
         layer = self.target_layer
@@ -167,6 +164,9 @@ class CPHAPFrontend:
                     alpha=0.3,
                     color="g"       # TODO クラスタ毎に色分け
                 )
+
+    def reset_p(self):
+        self.p = [list() for _ in range(self.model.depth)]
 
 
 def main(data_idx: int, layer: int, in_channel, target_channel: int, epochs: int):
