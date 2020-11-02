@@ -1,3 +1,4 @@
+import datetime
 from comet_ml import Experiment
 from typing import Tuple, Union
 import numpy as np
@@ -138,7 +139,7 @@ class CPHAPFrontend:
         rf = calculate_rf(self.model, (self.x_train.shape[1], self.x_train.shape[2]))
         p, indices = hap_core(self.p, self.model, self.x_test[data_idx], layer, target_channel, thresholds, rf)
         if len(p[layer]) != 0:
-            p = p[layer][0].squeeze(0)
+            p = p[layer][0]     # [in_features, Founds_sub_seq, rf_size]
         else:
             p = None
         self.p = p
