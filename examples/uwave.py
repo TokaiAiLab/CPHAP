@@ -237,7 +237,7 @@ class CPHAPFrontend:
             "init": model_init
         }, path)
 
-    def load(self, file):
+    def load(self, file, cuda=None):
         checkpoints = torch.load(file)
         init = checkpoints["init"]
         self.model = CNN(init["in_features"], init["mid_features"], init["n_class"], init["depth"])
@@ -247,6 +247,12 @@ class CPHAPFrontend:
         self.x_test = checkpoints["x_test"]
         self.y_train = checkpoints["y_train"]
         self.y_test = checkpoints["y_test"]
+
+        if cuda is not None:
+            self.model = self.model.cuda(cuda)
+            self.x_train = self.x_train.cuda(cuda)
+            self.x_test = self.x_test.cuda(cuda)
+            self.hap_lists = list(map(lambda x: x.cuda(cuda), self.hap_lists))
 
         self.reset_p()
 
