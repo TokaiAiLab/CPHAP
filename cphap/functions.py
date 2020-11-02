@@ -78,8 +78,8 @@ def han(
     Returns:
 
     """
-    a_jk: torch.Tensor = conv_out[0][channel]   # shape == seq_len
-    max_size = a_jk.shape[0]    # max seq len
+    a_jk: torch.Tensor = conv_out[0][channel]  # shape == seq_len
+    max_size = a_jk.shape[0]  # max seq len
     han_jk: List[int] = []
     for i in range(max_size):
         if a_jk[i] > thresholds[channel]:
