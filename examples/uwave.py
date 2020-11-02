@@ -158,16 +158,22 @@ class CPHAPFrontend:
         layer = self.target_layer
         cphaps = []
         uncertainties = []
+        print("{} activation points were detected in the data.".format(len(self.predicts)))
         for predict in self.predicts:
-            try:
-                for_mean_variance = torch.stack(
-                    [p_ for p_ in self.hap_lists[layer][in_channel] if (predict == predict_cluster(self.som, p_)).all()]
-                )
-            except RuntimeError:
+            start = datetime.datetime.now()
+            # for_mean_variance = torch.stack([
+            #   p_ for p_ in self.hap_lists[layer][in_channel] if (predict == predict_cluster(self.som, p_)).all()
+            # ])
+            som_preds = self.som.predict(self.hap_lists[layer][in_channel])[0]
+            flags = (predict == som_preds).all(1)
+            for_mean_variance = self.hap_lists[layer][in_channel][flags]
+            if not flags.any():
                 pass
             else:
                 cphaps.append(for_mean_variance.mean(0))
                 uncertainties.append(for_mean_variance.var(0))
+            end = datetime.datetime.now() - start
+            print("It took {}s to process each one.".format(end.total_seconds()))
 
         return cphaps, uncertainties
 
