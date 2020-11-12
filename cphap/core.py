@@ -1,4 +1,4 @@
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Callable
 import numpy as np
 import torch
 import torch.nn as nn
@@ -10,14 +10,35 @@ from .functions import find_t, han, generate_indices_for_hap
 
 class CNN(nn.Module):
     def __init__(
-        self, in_features: int, mid_features: int, n_class: int, depth: int = 1
+        self,
+        in_features: int,
+        mid_features: int,
+        n_class: int,
+        depth: int = 1,
+        activation: Callable[[torch.Tensor], torch.Tensor] = nn.functional.leaky_relu,
     ):
         super(CNN, self).__init__()
-        self.conv = nn.ModuleList([nn.Conv1d(in_features, mid_features, kernel_size=3)])
+        kernel_size = 3
+        dilation = 1
+        self.conv = nn.ModuleList(
+            [
+                nn.Conv1d(
+                    in_features,
+                    mid_features,
+                    kernel_size=kernel_size,
+                    padding=(kernel_size - 1) * dilation,
+                ),
+            ]
+        )
         self.depth = depth
 
         tmp = [
-            nn.Conv1d(mid_features, mid_features, kernel_size=3)
+            nn.Conv1d(
+                mid_features,
+                mid_features,
+                kernel_size=kernel_size,
+                padding=(kernel_size - 1) * dilation,
+            )
             for _ in range(depth - 1)
         ]
         self.conv.extend(tmp)
@@ -27,13 +48,14 @@ class CNN(nn.Module):
         self.in_features = in_features
         self.mid_features = mid_features
         self.n_class = n_class
+        self.activation = activation
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         batch = x.shape[0]
 
         for layer in self.conv:
             x = layer(x)
-            x = torch.relu(x)
+            x = self.activation(x)
 
         out = self.pool(x)
         out = out.reshape(batch, -1)
@@ -63,7 +85,11 @@ def calculate_rf(model: CNN, dummy_in: Tuple[int, int]) -> List[int]:
     return rf
 
 
-def calculate_thresholds(model: CNN, data: torch.Tensor) -> List[torch.Tensor]:
+def calculate_thresholds(
+    model: CNN,
+    data: torch.Tensor,
+    activation: Callable[[torch.Tensor], torch.Tensor] = torch.relu,
+) -> List[torch.Tensor]:
     """
     与えられたデータを基にPyTorchモデルのレイヤー毎の閾値を計算。
     リストにして返す。
@@ -71,6 +97,7 @@ def calculate_thresholds(model: CNN, data: torch.Tensor) -> List[torch.Tensor]:
     Args:
         model: PyTorch Model (CNN)
         data: dataset [N, C, L]
+        activation:
 
     Returns:
 
@@ -78,7 +105,7 @@ def calculate_thresholds(model: CNN, data: torch.Tensor) -> List[torch.Tensor]:
     results = []
     for layer in model.conv:
         data = layer(data)
-        data = torch.relu(data)
+        data = activation(data)
         results.append(find_t(data))
 
     return results
@@ -123,9 +150,12 @@ def hap_core(
     tmp = generate_indices_for_hap(han_jk, rf_j, max_size)
 
     tmp2 = [t.cpu().numpy().tolist() for t in tmp]
-    if len(tmp2) != 0:
-        hap_lists[j].append(x[:, tmp2])
-
+    try:
+        if len(tmp2) != 0:
+            hap_lists[j].append(x[:, tmp2])
+    except IndexError:
+        pass
+    # TODO パディングした場合の対処について考える
     return hap_lists, tmp
 
 

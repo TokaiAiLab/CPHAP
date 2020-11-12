@@ -64,7 +64,6 @@ def plot_kde(
         plt.show()
 
 
-@torch.jit.script
 def han(
     conv_out: torch.Tensor, channel: int, thresholds: torch.Tensor
 ) -> Tuple[List[int], int]:
