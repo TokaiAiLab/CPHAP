@@ -16,7 +16,7 @@ class CNN(nn.Module):
         n_class: int,
         depth: int = 1,
         activation: Callable[[torch.Tensor], torch.Tensor] = nn.functional.leaky_relu,
-        dilation: int = 1
+        dilation: int = 1,
     ):
         super(CNN, self).__init__()
         kernel_size = 3
