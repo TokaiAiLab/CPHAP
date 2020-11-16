@@ -16,10 +16,10 @@ class CNN(nn.Module):
         n_class: int,
         depth: int = 1,
         activation: Callable[[torch.Tensor], torch.Tensor] = nn.functional.leaky_relu,
+        dilation: int = 1
     ):
         super(CNN, self).__init__()
         kernel_size = 3
-        dilation = 1
         self.conv = nn.ModuleList(
             [
                 nn.Conv1d(
